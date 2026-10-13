@@ -19,9 +19,9 @@ A strain is either:
 | **Novel** | Present post-FMT but in neither the donor nor the recipient pre-FMT |
 | **Lost** | Present in the recipient pre-FMT, absent post-FMT |
 
-Answering this needs **strain-level** resolution. Species-level profiling is not enough: donor and recipient routinely carry *different strains of the same species*, so a species-level table will show "no change" where a complete strain replacement actually happened. Everything in this tutorial is built around getting below the species line.
+Species-level profiling is not enough: donor and recipient routinely carry *different strains of the same species*, so a species-level table shows "no change" where a complete strain replacement actually happened. Everything in this tutorial is built around getting below the species line.
 
-See [docs/concepts/engraftment.md](docs/concepts/engraftment.md) for the biology and the definitions used here.
+Answering this needs **strain-level** resolution — see [docs/concepts/engraftment.md](docs/concepts/engraftment.md) for why, and for what this approach can and cannot support.
 
 ---
 
@@ -65,7 +65,9 @@ Why this ordering matters: step 3 is only meaningful because of step 2. A sylph 
 | 3 | [Custom sylph database](docs/03-sylph-custom-db.md) | Build a cohort-specific reference from the MAGs |
 | 4 | [Engraftment analysis](docs/04-engraftment-analysis.md) | Profile samples, call engraftment, interpret |
 
-> **Status:** stages 0–1 are written. Stages 2–4 are in progress.
+Work through them in order. Every step is a copy-pasteable snippet — there is no wrapper pipeline to install, and nothing here hides a step from you.
+
+Background reading: **[what engraftment actually means](docs/concepts/engraftment.md)** — definitions, the four outcomes, and the limits of calling strains this way.
 
 ---
 

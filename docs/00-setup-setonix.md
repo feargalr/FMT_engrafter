@@ -51,7 +51,15 @@ The path is `/scratch/pawseyXXXX/yourusername` — the `pawseyXXXX` part is your
 sacctmgr show assoc user=$(whoami) format=account%20
 ```
 
-Write it down. You will set it in two places: the OpusTaxa SLURM profile (stage 1) and the Nextflow config (stage 2). A wrong or missing account means jobs are rejected at submission, or silently billed to someone else's allocation.
+Write it down. You will need it in two places: the OpusTaxa SLURM profile (stage 1) and an environment variable for Nextflow (stage 2). A wrong or missing account means jobs are rejected at submission, or silently billed to someone else's allocation.
+
+Export it now, and add the line to your `~/.bashrc`:
+
+```bash
+export PAWSEY_PROJECT=pawseyXXXX
+```
+
+> **This one matters more than it looks.** The nf-core Setonix profile builds its SLURM account flag from `$PAWSEY_PROJECT`. If the variable is unset, every job in stage 2 is submitted with an empty `--account` and fails. It is the most common way a Setonix Nextflow run dies on the first job.
 
 ---
 
@@ -103,23 +111,38 @@ pip install snakemake-executor-plugin-slurm
 
 ## Singularity image cache
 
-Container images are large and you do not want them re-downloaded per job, or landing in `$HOME`. Point the cache at `$MYSOFTWARE`:
+Container images are large, and you do not want them re-downloaded per job or landing in `$HOME`.
+
+Good news: **loading the Nextflow module sets this up for you.** `module load nextflow/25.04.6` exports `NXF_HOME=$MYSOFTWARE/.nextflow` and `NXF_SINGULARITY_CACHEDIR=$MYSOFTWARE/.nextflow_singularity`, precisely because the `$HOME` defaults would blow the quota. You do not need to set those yourself.
+
+For stages 1, 3 and 4 (Snakemake and direct container runs), Snakemake manages its own image directory inside the working directory, which is on `$MYSCRATCH` — also fine.
 
 ```bash
-export SINGULARITY_CACHEDIR=$MYSOFTWARE/.singularity
-export NXF_SINGULARITY_CACHEDIR=$MYSOFTWARE/.singularity
-mkdir -p $SINGULARITY_CACHEDIR
+module load nextflow/25.04.6
+echo $NXF_SINGULARITY_CACHEDIR    # confirm it points into $MYSOFTWARE
 ```
 
-Add both lines to your `~/.bashrc` so they apply to every session. `NXF_SINGULARITY_CACHEDIR` is the one Nextflow reads in stage 2; `SINGULARITY_CACHEDIR` covers stages 1, 3 and 4.
+> Pawsey documents `NXF_SINGULARITY_CACHEDIR` only. If you see advice to export `SINGULARITY_CACHEDIR` on Setonix, treat it as unverified — check what your Nextflow module already sets before overriding anything.
 
 ---
 
-## Persistent sessions
+## Where to run the orchestrator
 
-Both Snakemake and Nextflow are **orchestrators**: they run continuously, submitting and monitoring SLURM jobs on your behalf. If your SSH connection drops, the orchestrator dies and the run stops.
+Both Snakemake and Nextflow are **orchestrators**: they run continuously for the whole analysis, submitting and monitoring SLURM jobs on your behalf. If your SSH connection drops, the orchestrator dies and the run stops.
 
-So run them inside `screen` (or `tmux`), on the login node:
+Setonix provides **dedicated workflow nodes** for exactly this. Connect to them rather than to a general login node:
+
+```bash
+ssh yourusername@setonix-workflow.pawsey.org.au
+```
+
+This lands you on `setonix-07` or `setonix-08`. Note which one — to get back to a running session later you must SSH to that specific node:
+
+```bash
+ssh yourusername@setonix-08.pawsey.org.au
+```
+
+Then start a persistent session and run the orchestrator **directly inside it**:
 
 ```bash
 screen -S fmt            # create ONCE
@@ -133,7 +156,9 @@ screen -r fmt            # reattach later
 
 > **Create once, then reattach.** Running `screen -S fmt` a second time makes a *new empty* session rather than returning you to the running pipeline. `screen -ls` lists what you already have.
 
-> **Never `sbatch` the orchestrator itself.** Snakemake and Nextflow need to stay on the login node to talk to the SLURM controller. Submitting them as jobs breaks job submission from inside.
+> **Do not `sbatch` or `salloc` the orchestrator.** Pawsey's workflow-node guidance is explicit about this: run the master task directly in your screen/tmux session. The workflow nodes exist to host long-running masters and are not bound by the `long` partition's 96-hour wall time.
+
+> **A note on conflicting Pawsey docs:** Pawsey's older Nextflow page recommends submitting the Nextflow master as a Slurm batch script, while the newer workflow-nodes page says to run it interactively on `setonix-workflow` and not to use `sbatch`. This tutorial follows the newer workflow-nodes guidance. Check both pages if you hit trouble, as the recommendation has changed over time.
 
 ---
 
@@ -142,10 +167,10 @@ screen -r fmt            # reattach later
 Before moving to stage 1:
 
 - [ ] Working directory created on `$MYSCRATCH`
-- [ ] Project code `pawseyXXXX` identified
+- [ ] Project code identified and `PAWSEY_PROJECT` exported in `~/.bashrc`
 - [ ] `singularity/4.1.0-slurm` and `nextflow/25.04.6` both load
 - [ ] `snakemake` conda env created, with the SLURM executor plugin
-- [ ] `SINGULARITY_CACHEDIR` and `NXF_SINGULARITY_CACHEDIR` exported in `~/.bashrc`
-- [ ] A `screen` session you know how to reattach to
+- [ ] `NXF_SINGULARITY_CACHEDIR` points into `$MYSOFTWARE` after loading the Nextflow module
+- [ ] Connected via `setonix-workflow`, with a `screen` session you know how to reattach to (note the node number)
 
 Next: **[Stage 1 — OpusTaxa](01-opustaxa.md)**

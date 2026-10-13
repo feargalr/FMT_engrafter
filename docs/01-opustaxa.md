@@ -74,7 +74,29 @@ This is the single most valuable thing you will do for stages 2–4. Create `sam
 
 Every engraftment call in stage 4 is a comparison *across rows of this table*. Without it you have a matrix of genomes against sample names and no way to interpret it. Build it now, while you still remember which tube was which.
 
-A template is provided at [`../config/samples.tsv.example`](../config/samples.tsv.example).
+Write it as a tab-separated file now:
+
+```bash
+cat > $MYSCRATCH/FMT_engrafter/samples.tsv <<'EOF'
+sample_id	subject_id	sample_type	timepoint	donor_id
+Donor_01	donor01	donor	NA	
+Donor_02	donor02	donor	NA	
+Recipient_01_Day00	recip01	recipient	Day00	Donor_01
+Recipient_01_Day07	recip01	recipient	Day07	Donor_01
+Recipient_01_Day28	recip01	recipient	Day28	Donor_01
+Recipient_02_Day00	recip02	recipient	Day00	Donor_02
+Recipient_02_Day07	recip02	recipient	Day07	Donor_02
+Recipient_02_Day28	recip02	recipient	Day28	Donor_02
+EOF
+```
+
+Column notes:
+
+- **`sample_id`** must match the FASTQ basename OpusTaxa uses — it is the join key for every later table.
+- **`timepoint`** — `Day00` is the pre-FMT baseline. Keep labels zero-padded (`Day07`, not `Day7`) so they sort correctly as strings.
+- **`donor_id`** — which donor this recipient received. Required: it is what lets stage 4 compare a recipient against *their own* donor rather than the whole cohort.
+
+A copy of this template lives at [`config/samples.tsv.example`](../config/samples.tsv.example).
 
 > **Donor material matters.** The donor sample must be the *material actually administered*, not a separate donor stool collection from a different date. Donor strain content varies between donations.
 
