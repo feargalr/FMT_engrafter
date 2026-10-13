@@ -1,0 +1,37 @@
+# Data — never commit sequencing data or genomes
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.fasta
+*.fa
+*.fna
+*.bam
+*.sam
+
+# Sylph artefacts
+*.syldb
+*.sylsp
+
+# Pipeline working directories
+work/
+.nextflow/
+.nextflow.log*
+.snakemake/
+results/
+Data/
+Reports/
+logs/
+
+# Real sample manifests (keep only the .example)
+config/samples.tsv
+config/*.csv
+!config/*.example
+!config/*.example.csv
+
+# OS / editor
+.DS_Store
+*.swp
+.Rhistory
+.ipynb_checkpoints/
+__pycache__/
