@@ -58,18 +58,19 @@ This is the main reason the tutorial profiles *every* sample against *the same* 
 
 Be clear about what this pipeline can and cannot support.
 
-**What it does well.** It establishes, with a cohort-specific reference, which genomes are shared between donor and recipient and at what abundance — a containment-and-ANI measurement over genomes that actually exist in your study.
+**What it does well.** It establishes, with a cohort-specific reference, which of the donor's actual genomes are detectable in the recipient and at what abundance. Because the reference is the donor's own MAG rather than a public representative, a hit is evidence about *that donor's* genome — which is the whole question.
 
-**Where it stops.** Sylph reports an adjusted ANI per detected genome. ANI is a *genome-wide average*; two distinct strains of the same species commonly sit at 98–99% ANI, and the conventional threshold for "same strain" in the FMT literature is far tighter than ANI can comfortably resolve — typically a population-level SNP identity such as inStrain's **popANI ≥ 99.999%**. Tools built for this (inStrain, StrainPhlAn, SameStr) compare allele frequencies at shared sites rather than averaging over the genome.
+**Where it stops.** Sylph reports ANI to the **best-matching** population in a sample. If the recipient carries their own strain of the same species, it shares most of the donor MAG's genome and can clear a high ANI threshold by itself. The pre-FMT baseline is what resolves this: a relative already present shows up at Day00 and the MAG is classified as pre-existing rather than engrafted.
 
-So: treat the output of this tutorial as a **strong candidate set** — shared genomes with high ANI and good coverage — and, if the study's claims depend on strain identity rather than genome sharing, follow up those candidates with a SNP-level tool. Stage 4 notes where that handoff belongs.
+The case that slips through is a recipient strain **below detection pre-FMT that blooms afterwards** — absent-then-present looks identical to engraftment. Post-FMT blooms are common enough that this is worth checking rather than assuming away, which is why stage 4 screens engraftment calls for faint pre-FMT signal.
 
-Claiming strain-level engraftment from ANI alone is the most common overstatement in this area. The pipeline will happily produce a number; the number does not by itself license the claim.
+So: treat a call backed by no pre-FMT signal and solid post-FMT coverage as strong, and a call where something near-identical was already faintly present as provisional. The pipeline will produce a number either way; the number is only as good as the baseline behind it.
 
 ---
 
 ## Further reading
 
 - Smillie et al. (2018), *Cell Host & Microbe* — strain engraftment determinants after FMT
-- Olm et al. (2021), *Nature Biotechnology* — inStrain and popANI thresholds
-- Shaw et al. (2024), *Nature Biotechnology* — sylph method and its ANI estimation
+- Ianiro et al. (2022), *Nature Medicine* — cross-study FMT strain engraftment meta-analysis
+- Shaw & Yu (2024), *Nature Biotechnology* — sylph: containment ANI and its estimation
+- [sylph documentation](https://sylph-docs.github.io/) — output format and interpretation

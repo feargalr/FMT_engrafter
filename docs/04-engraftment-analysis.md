@@ -65,7 +65,7 @@ Then, per donor MAG and per recipient:
 
 The `✓ ✓` row is the one to be careful with. The MAG is in the donor catalogue *and* was already in the recipient before transplant, so post-FMT presence attributes to neither source. Report these separately; do not fold them into the engraftment count.
 
-> **What the ANI threshold does and does not support.** 99.9% is an analytical choice, not a definition of strain identity. sylph's `Adjusted_ANI` is a genome-wide containment estimate against the *best-matching* population in the sample, so a high value says a very similar genome is present — not that it is specifically your donor's isolate. The strain-genomics convention (inStrain `popANI` ≥ 99.999% over ≥50% of the genome) is considerably stricter and uses allele-level evidence this method does not have. Treat these calls as **strain-level candidates**, and if a claim turns on strain identity rather than genome sharing, confirm the candidates with a SNP-level tool. Say which you did in your methods.
+> **The one case that fools this.** sylph reports ANI to the *best-matching* population in a sample. If the recipient carries their own strain of the same species, it shares most of the donor MAG's genome and can clear 99.9% on its own. The pre-FMT baseline normally catches that — the relative is detected at Day00 and the MAG is classified `pre_existing`. The gap is a recipient strain that sits **below detection pre-FMT and blooms afterwards**: it then reads as absent-then-present, i.e. engraftment. Post-FMT blooms are common, so for your headline engraftment calls, check the Day00 coverage of that MAG. A MAG with coverage just under the threshold pre-FMT is a different proposition from one with no signal at all.
 
 ---
 
@@ -222,7 +222,29 @@ ggplot(summary_tbl, aes(timepoint, proportion, group = subject_id)) +
 ggsave("engraftment_over_time.pdf", width = 8, height = 5)
 ```
 
-### Step 7 — check threshold sensitivity
+### Step 7 — screen engraftment calls for pre-FMT near-misses
+
+Following the caveat above: for every MAG called engrafted, look at what it was actually doing pre-FMT. A MAG that sat just under the threshold at Day00 is a weaker call than one with no signal whatsoever.
+
+```r
+calls %>%
+  filter(call == "engraftment") %>%
+  left_join(
+    detection %>% select(mag_id, pre_sample = sample_id,
+                         ani_pre = Adjusted_ANI, cov_pre = cov),
+    by = c("mag_id", "pre_sample")
+  ) %>%
+  mutate(pre_status = case_when(
+    is.na(ani_pre)                      ~ "no signal at all",      # strongest
+    ani_pre >= MIN_ANI & cov_pre < MIN_COV ~ "high ANI, low coverage",  # weakest
+    TRUE                                ~ "below ANI threshold"
+  )) %>%
+  count(timepoint, pre_status)
+```
+
+`no signal at all` is the clean case: sylph saw nothing resembling that genome before FMT. `high ANI, low coverage` means a near-identical genome *was* faintly present pre-FMT and only failed the coverage floor — treat those as your weakest engraftment calls, and consider reporting them separately.
+
+### Step 8 — check threshold sensitivity
 
 `MIN_ANI` and `MIN_COV` are analytical choices. Re-run steps 2–5 across a range and see whether your conclusions move:
 
@@ -277,7 +299,7 @@ The natural extensions, in rough order of effort:
 
 - **Vary the thresholds** and report sensitivity. Cheapest and most informative.
 - **Add timepoints.** Persistence at a late timepoint is far stronger evidence than detection at day 7.
-- **Confirm candidates with SNP-level tools.** inStrain (`profile` then `compare`), StrainPhlAn, or SameStr, run on the subset of MAGs the above flagged. Note that inStrain needs ≥5× coverage per sample, much stricter than sylph's detection floor, so only your better-covered candidates will be callable.
+- **Sequence the weak calls deeper.** The `high ANI, low coverage` group from step 7 is where extra depth changes the answer, rather than where extra tooling does.
 - **Relate engraftment to outcome** — the clinical question this is usually a means to.
 
 See [the concepts guide](concepts/engraftment.md) for the definitions and their limits.
