@@ -60,6 +60,8 @@ Be clear about what this pipeline can and cannot support.
 
 **What it does well.** It establishes, with a cohort-specific reference, which of the donor's actual genomes are detectable in the recipient. Because the reference is the donor's own MAG rather than a public representative, a hit is evidence about *that donor's* genome — which is the whole question. The readout is detection: a count of donor MAGs present or absent, not how abundant each one is.
 
+It also recovers some of what the species-level view loses at the top of this page. Because the catalogue is kept un-dereplicated, a recipient strain that is the *same species but a different strain* from a donor MAG shows up at its own ANI, below the identity threshold. Detecting the donor strain there post-FMT is therefore distinguishable from colonising an empty niche — it is **strain replacement**, which is exactly the case a species table reports as "no change".
+
 **Where it stops.** Sylph reports ANI to the **best-matching** population in a sample. If the recipient carries their own strain of the same species, it shares most of the donor MAG's genome and can clear a high ANI threshold by itself. The pre-FMT baseline is what resolves this: a relative already present shows up at Day00 and the MAG is classified as pre-existing rather than engrafted.
 
 The case that slips through is a recipient strain **below detection pre-FMT that blooms afterwards** — absent-then-present looks identical to engraftment. Post-FMT blooms are common enough that this is worth checking rather than assuming away, which is why stage 4 screens engraftment calls for faint pre-FMT signal.

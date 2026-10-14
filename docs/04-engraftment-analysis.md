@@ -224,27 +224,49 @@ ggplot(summary_tbl, aes(timepoint, proportion, group = subject_id)) +
 ggsave("engraftment_over_time.pdf", width = 8, height = 5)
 ```
 
-### Step 7 — screen engraftment calls for pre-FMT near-misses
+### Step 7 — examine the pre-FMT baseline
 
-Following the caveat above: for every MAG called engrafted, look at what it was actually doing pre-FMT. A MAG that sat just under the threshold at Day00 is a weaker call than one with no signal whatsoever.
+The Day00 sample is not just a filter — it is the most informative sample you have for interpreting everything else. Before FMT, how much donor-like material did each recipient already carry?
+
+This is where keeping the catalogue un-dereplicated pays off. A recipient strain sitting at ~99.9% identity to one of the donor's MAGs is reported in its own right, so you can see it.
+
+```r
+baseline <- pre %>%
+  inner_join(catalog %>% select(mag_id, donor_id), by = "donor_id",
+             relationship = "many-to-many") %>%
+  left_join(detection %>% select(mag_id, pre_sample = sample_id,
+                                 ani_pre = Adjusted_ANI, cov_pre = cov),
+            by = c("mag_id", "pre_sample")) %>%
+  mutate(baseline_status = case_when(
+    is.na(ani_pre)                          ~ "absent",
+    ani_pre >= MIN_ANI & cov_pre >= MIN_COV ~ "near-identical, detected",
+    ani_pre >= MIN_ANI                      ~ "near-identical, low coverage",
+    TRUE                                    ~ "related, below ANI threshold"
+  ))
+
+baseline %>% count(subject_id, baseline_status)
+```
+
+How to read the four states:
+
+| Baseline status | Meaning |
+|---|---|
+| `absent` | Nothing resembling this donor genome pre-FMT. Later detection is a clean engraftment call. |
+| `near-identical, detected` | The recipient already carried this strain. Post-FMT presence is ambiguous — classified `pre_existing`. |
+| `near-identical, low coverage` | A near-identical strain was faintly there. **The ambiguous case** — see below. |
+| `related, below ANI threshold` | Same species, different strain. Later detection of the donor strain is genuine, and interesting: it means strain replacement, not colonisation of empty niche. |
+
+Then screen the engraftment calls against it:
 
 ```r
 calls %>%
   filter(call == "engraftment") %>%
-  left_join(
-    detection %>% select(mag_id, pre_sample = sample_id,
-                         ani_pre = Adjusted_ANI, cov_pre = cov),
-    by = c("mag_id", "pre_sample")
-  ) %>%
-  mutate(pre_status = case_when(
-    is.na(ani_pre)                      ~ "no signal at all",      # strongest
-    ani_pre >= MIN_ANI & cov_pre < MIN_COV ~ "high ANI, low coverage",  # weakest
-    TRUE                                ~ "below ANI threshold"
-  )) %>%
-  count(timepoint, pre_status)
+  left_join(baseline %>% select(mag_id, subject_id, baseline_status),
+            by = c("mag_id", "subject_id")) %>%
+  count(timepoint, baseline_status)
 ```
 
-`no signal at all` is the clean case: sylph saw nothing resembling that genome before FMT. `high ANI, low coverage` means a near-identical genome *was* faintly present pre-FMT and only failed the coverage floor — treat those as your weakest engraftment calls, and consider reporting them separately.
+Anything landing in `near-identical, low coverage` is your weakest set: a near-identical genome *was* faintly present pre-FMT and only failed the coverage floor, so the post-FMT signal could be the recipient's own strain expanding rather than the donor's establishing. Report those separately rather than dropping them — the distinction is the interesting part, not an inconvenience.
 
 ### Step 8 — check threshold sensitivity
 

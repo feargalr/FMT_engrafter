@@ -103,7 +103,13 @@ The reason sylph gives is *abundance accuracy*. When two near-identical genomes 
 
 **This tutorial does not use abundance.** The readout is how many donor MAGs are detected, so the failure mode that motivates dereplication costs us nothing. Both genomes being reported is, if anything, the conservative outcome for presence/absence work.
 
-Meanwhile dereplication has a real cost here: if `Donor_01_MAG017` and `Donor_02_MAG009` are the same species at 99% ANI, dereplication keeps one and discards the other, and you have destroyed your ability to say *which donor* contributed that strain. Donor provenance is the entire point of building a custom catalogue.
+Meanwhile dereplication has two real costs here.
+
+**It destroys donor provenance.** If `Donor_01_MAG017` and `Donor_02_MAG009` are the same species at 99% ANI, dereplication keeps one and discards the other, and you can no longer say *which donor* contributed that strain. Provenance is the entire point of building a custom catalogue.
+
+**It hides genuine near-identity, which is signal.** If two genomes really are both present at ~99.9% identity, that is something you want to see — particularly before FMT. A recipient carrying a strain near-identical to one of the donor's MAGs at baseline is the single most important thing to know when interpreting that MAG later: its post-FMT "engraftment" is ambiguous at best. Collapsing those two genomes into one representative throws that away and leaves you unable to tell the ambiguous calls from the clean ones.
+
+So redundancy in the catalogue is not noise to be suppressed. Both genomes being reported is exactly the behaviour you want, and stage 4 uses it.
 
 So: **keep the catalogue as it is.** One entry per MAG that passed stage-2 QC, donor encoded in every filename.
 
