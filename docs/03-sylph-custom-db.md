@@ -95,20 +95,21 @@ Keep it. Stage 4 needs it to attribute hits to donors and to check whether a wea
 
 ---
 
-## The dereplication question
+## Do not dereplicate
 
-sylph's documentation recommends dereplicating a reference database at **95% ANI (species level)** before building. The reason is abundance accuracy: when two near-identical genomes are both in the database, sylph's k-mer reassignment can fail to decide between them, and a single organism gets reported as two — inflating abundance and splitting the signal.
+sylph's documentation recommends dereplicating a reference database at **95% ANI (species level)** before building. It is worth understanding why that advice exists, because **it does not apply here.**
 
-That advice is sound, and it conflicts with what FMT tracking needs. If `Donor_01_MAG017` and `Donor_02_MAG009` are the same species at 99% ANI, dereplication keeps one and discards the other — and you have just destroyed your ability to say which donor contributed the strain.
+The reason sylph gives is *abundance accuracy*. When two near-identical genomes sit in the same database, k-mer reassignment cannot cleanly decide between them, and a single organism gets reported as two — so the species looks roughly twice as abundant as it is. Both genomes are still reported; the damage is to the abundance values, not to detection.
 
-**The resolution: dereplicate, but keep the mapping.**
+**This tutorial does not use abundance.** The readout is how many donor MAGs are detected, so the failure mode that motivates dereplication costs us nothing. Both genomes being reported is, if anything, the conservative outcome for presence/absence work.
 
-- For a **single-donor-per-recipient** design — most FMT studies — build the catalogue from **that donor's MAGs only**, dereplicated within the donor. Cross-donor redundancy never arises, since you only ever compare a recipient to their own donor. This is the recommended path and the simplest.
-- For a **pooled or multi-donor** design, dereplicate across the full catalogue at 95% ANI but record every genome that collapsed into each representative. A hit on a representative then means "one of these donors", and you report it that way rather than silently attributing it to the surviving filename.
+Meanwhile dereplication has a real cost here: if `Donor_01_MAG017` and `Donor_02_MAG009` are the same species at 99% ANI, dereplication keeps one and discards the other, and you have destroyed your ability to say *which donor* contributed that strain. Donor provenance is the entire point of building a custom catalogue.
 
-Either way, duplicates *within* a donor should go. Near-identical bins from the same assembly are redundancy with no information in them.
+So: **keep the catalogue as it is.** One entry per MAG that passed stage-2 QC, donor encoded in every filename.
 
-> **If you skip dereplication entirely**, abundance values become unreliable where close relatives coexist in the catalogue. Detection is more robust than abundance here, so skipping is survivable for presence/absence work — but say so in your methods rather than quoting abundances as if they were clean.
+The one thing still worth removing is near-duplicate bins *within a single donor* — two bins from the same assembly that are the same organism. They carry no extra information and just inflate your denominator, which matters because the engraftment proportion is measured against the donor's catalogue size.
+
+> **If you later add abundance to the analysis**, revisit this. At that point sylph's dereplication advice applies in full, and you will need the representative→source-MAG mapping to retain donor provenance.
 
 ---
 

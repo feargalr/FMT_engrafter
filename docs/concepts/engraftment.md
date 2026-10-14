@@ -58,7 +58,7 @@ This is the main reason the tutorial profiles *every* sample against *the same* 
 
 Be clear about what this pipeline can and cannot support.
 
-**What it does well.** It establishes, with a cohort-specific reference, which of the donor's actual genomes are detectable in the recipient and at what abundance. Because the reference is the donor's own MAG rather than a public representative, a hit is evidence about *that donor's* genome — which is the whole question.
+**What it does well.** It establishes, with a cohort-specific reference, which of the donor's actual genomes are detectable in the recipient. Because the reference is the donor's own MAG rather than a public representative, a hit is evidence about *that donor's* genome — which is the whole question. The readout is detection: a count of donor MAGs present or absent, not how abundant each one is.
 
 **Where it stops.** Sylph reports ANI to the **best-matching** population in a sample. If the recipient carries their own strain of the same species, it shares most of the donor MAG's genome and can clear a high ANI threshold by itself. The pre-FMT baseline is what resolves this: a relative already present shows up at Day00 and the MAG is classified as pre-existing rather than engrafted.
 

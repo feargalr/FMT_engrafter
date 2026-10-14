@@ -6,6 +6,24 @@ This repository is a *tutorial*, not a pipeline. It stitches together three exis
 
 ---
 
+## What this assumes, and what it measures
+
+**The design.** This tutorial is built for a three-sample comparison per recipient:
+
+| Sample | Role |
+|---|---|
+| **Donor FMT material** | The material actually administered. Source of the reference genomes. |
+| **Recipient pre-FMT** | Baseline. Establishes what the recipient already carried. |
+| **Recipient post-FMT** | One or more timepoints. Where engraftment is read out. |
+
+All three are required. Without the pre-FMT baseline you cannot tell engraftment from persistence, and every engraftment number will be inflated by the recipient's own pre-existing strains.
+
+**The readout is detection, not abundance.** The output is a count: *how many of the donor's MAGs are detected in the recipient after FMT that were not there before.* Every MAG is present or absent in a given sample, and the analysis counts those states.
+
+Relative abundance is deliberately not part of it. sylph reports abundance columns and this tutorial ignores them. That is a simplification with a real payoff — several design decisions downstream (notably whether to dereplicate the MAG catalogue) get much easier once abundance accuracy is not a constraint. If you do want abundance, the columns are there, but the caveats are yours to work out.
+
+---
+
 ## The question this answers
 
 After an FMT, we want to know: **which bacterial strains in the recipient's post-FMT gut came from the donor?**
@@ -46,7 +64,7 @@ The core idea is **reference-free**: rather than matching samples against a gene
             │
    ┌────────▼─────────┐
    │ 4. Profile       │  match every sample against the custom DB
-   └────────┬─────────┘  ⇒ per-genome abundance + ANI per sample
+   └────────┬─────────┘  ⇒ per-genome ANI + coverage per sample
             │
       Engraftment calls
 ```
@@ -86,10 +104,10 @@ All three run from Singularity containers on Setonix. Nothing here needs conda b
 You will need:
 
 - A Pawsey account and a project code (`pawseyXXXX`)
-- Paired-end shotgun metagenomes with a design that includes, at minimum, **donor material**, **recipient pre-FMT** and **recipient post-FMT** samples
+- Paired-end shotgun metagenomes covering the three sample types above
 - Roughly 1–2 TB of `$MYSCRATCH` for a mid-sized cohort (assemblies and bins dominate)
 
-A design without a pre-FMT recipient sample cannot distinguish engraftment from persistence. This is the single most common design flaw — see [the concepts guide](docs/concepts/engraftment.md).
+More than one post-FMT timepoint is worth having but not required — persistence at a later timepoint is much stronger evidence than detection at a single early one.
 
 ---
 

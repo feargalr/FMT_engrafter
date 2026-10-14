@@ -31,16 +31,18 @@ $SYLPH profile -u donor_catalogue.syldb sketches/*.sylsp -t 32 -o sylph_profiles
 |---|---|
 | `Sample_file` | Which sample — key back to `samples.tsv` |
 | `Genome_file` | Which donor MAG — key back to `catalogue_metadata.tsv` |
-| `Taxonomic_abundance` | Coverage-normalised relative abundance (%), MetaPhlAn-like |
-| `Sequence_abundance` | Percentage of reads assigned, Kraken-like |
 | **`Adjusted_ANI`** | Coverage-adjusted containment ANI — the identity measure |
-| `Eff_cov` / `True_cov` | Estimated coverage of that genome in that sample |
+| **`Eff_cov`** / `True_cov` | Estimated coverage of that genome in that sample |
+| `Taxonomic_abundance` | Relative abundance (%) — **not used here** |
+| `Sequence_abundance` | Percentage of reads assigned — **not used here** |
 | `ANI_5-95_percentile` | Confidence interval on the ANI; `NA-NA` when coverage is too low |
 | `Containment_ind` | Genome k-mers found / total, e.g. `959/1053` |
 | `Naive_ANI` | Unadjusted ANI |
 | `Contig_name` | Name of the genome's *first contig* — **not** the MAG name; use `Genome_file` |
 
-**Only genomes passing the threshold appear.** A MAG absent from a sample's rows was not detected — absence is encoded as a missing row, so you must expand the table to a full genome × sample matrix before counting. The analysis script does this.
+Only **`Adjusted_ANI`** and a coverage column feed the analysis. The two abundance columns are ignored throughout — the readout here is how many donor MAGs are detected, not how much of each is present.
+
+**Only genomes passing the threshold appear.** A MAG absent from a sample's rows was not detected — absence is encoded as a missing row, so you must expand the table to a full genome × sample matrix before counting anything. Step 2 below does this, and skipping it is the most common way to get wrong numbers.
 
 ---
 
