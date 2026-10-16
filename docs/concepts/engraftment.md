@@ -22,22 +22,30 @@ This is why the tutorial builds a reference from the actual genomes in the study
 
 ---
 
-## The four outcomes
+## What the count is actually counting
 
-For each genome, compare three sample types. Let **D** = donor material, **Pre** = recipient before FMT, **Post** = recipient after FMT.
+Every genome in the reference is, by construction, a **donor** genome — the database is built from the donor's MAGs and nothing else. So the only question per MAG is what the recipient did with it, and there are four possibilities:
 
-| D | Pre | Post | Call | Interpretation |
-|:-:|:-:|:-:|---|---|
-| ✓ | ✗ | ✓ | **Engraftment** | Donor strain established in the recipient |
-| ✓ | ✓ | ✓ | **Persistence (ambiguous)** | Cannot attribute — present in both sources |
-| ✗ | ✓ | ✓ | **Persistence** | Recipient's own strain retained |
-| ✗ | ✓ | ✗ | **Loss** | Recipient strain cleared |
-| ✗ | ✗ | ✓ | **Novel / influx** | From neither source — diet, environment, or below detection earlier |
-| ✓ | ✓ | ✗ | **Rejection** | Donor strain failed despite being delivered |
+| Pre-FMT | Post-FMT | Meaning |
+|:-:|:-:|---|
+| ✗ | ✓ | **Engraftment** — donor genome detected after FMT, absent before |
+| ✗ | ✗ | **No transfer** — never established, or below detection |
+| ✓ | ✓ | **Already present** — the recipient carried it before FMT too |
+| ✓ | ✗ | **Lost** — present at baseline, gone afterwards |
 
-The row that causes most trouble is **D✓ Pre✓ Post✓**. Presence/absence cannot resolve it; you would need strain-resolved SNP comparison (see *Limits*, below) to say whose strain won. Honest practice is to report these as a separate "ambiguous" category rather than silently counting them as engraftment.
+The headline number is the count of the first row: donor MAGs detected post-FMT. The reason the **baseline sample matters so much** is the third row. Without it, "already present" and "engraftment" are indistinguishable, and every number is inflated by whatever the recipient happened to share with their donor already.
 
-> **Design consequence:** without a pre-FMT recipient sample you cannot distinguish row 1 from row 2, and every engraftment number you report will be inflated by the recipient's own pre-existing strains. A pre-FMT sample is not optional.
+In practice you do not classify each MAG individually. You count detected MAGs per sample and read the baseline as the floor:
+
+```
+baseline:    0 / 124 donor MAGs
+post-FMT 1:  5 / 124
+post-FMT 2:  7 / 124
+```
+
+A baseline at or near zero means the post-FMT counts are attributable to the FMT. A high baseline means they are not, and you should subtract it rather than report the raw number.
+
+> **Design consequence:** a pre-FMT recipient sample is not optional. Without it you have a count with no floor, and no way to say whether it means anything.
 
 ---
 
@@ -47,7 +55,7 @@ The row that causes most trouble is **D✓ Pre✓ Post✓**. Presence/absence ca
 
 Two safeguards:
 
-- **Report the depth.** A genome at 0.01× coverage in a shallowly sequenced sample is not reliably "absent". Sylph's effective coverage estimate is the right quantity to check.
+- **Report the depth.** A genome at 0.01× coverage in a shallowly sequenced sample is not reliably "absent". Sylph's `Eff_cov` is the right quantity to check — which is why this walkthrough requires ≥1× rather than accepting sylph's much lower detection floor.
 - **Use a consistent detection threshold** across all samples, and state it. Varying the threshold between sample types manufactures engraftment.
 
 This is the main reason the tutorial profiles *every* sample against *the same* database in a single step — so detection is symmetric.
@@ -60,13 +68,15 @@ Be clear about what this pipeline can and cannot support.
 
 **What it does well.** It establishes, with a cohort-specific reference, which of the donor's actual genomes are detectable in the recipient. Because the reference is the donor's own MAG rather than a public representative, a hit is evidence about *that donor's* genome — which is the whole question. The readout is detection: a count of donor MAGs present or absent, not how abundant each one is.
 
-It also recovers some of what the species-level view loses at the top of this page. Because the catalogue is kept un-dereplicated, a recipient strain that is the *same species but a different strain* from a donor MAG shows up at its own ANI, below the identity threshold. Detecting the donor strain there post-FMT is therefore distinguishable from colonising an empty niche — it is **strain replacement**, which is exactly the case a species table reports as "no change".
+It also recovers some of what the species-level view loses at the top of this page. Because sylph reports hits down to 95% ANI, a recipient strain that is the *same species but a different strain* from a donor MAG appears in the output at its own ANI — below the 99.9% cutoff, but visible. Detecting the donor strain there post-FMT is therefore distinguishable from colonising an empty niche: it is **strain replacement**, exactly the case a species table reports as "no change".
 
-**Where it stops.** Sylph reports ANI to the **best-matching** population in a sample. If the recipient carries their own strain of the same species, it shares most of the donor MAG's genome and can clear a high ANI threshold by itself. The pre-FMT baseline is what resolves this: a relative already present shows up at Day00 and the MAG is classified as pre-existing rather than engrafted.
+**Where it stops.** Sylph reports ANI to the **best-matching** population in a sample. If the recipient carries their own strain of the same species, it shares most of the donor MAG's genome and can clear a high ANI threshold by itself. The pre-FMT baseline is what resolves this: a relative already present is detected at baseline too, so it lifts the baseline count rather than appearing as engraftment.
 
-The case that slips through is a recipient strain **below detection pre-FMT that blooms afterwards** — absent-then-present looks identical to engraftment. Post-FMT blooms are common enough that this is worth checking rather than assuming away, which is why stage 4 screens engraftment calls for faint pre-FMT signal.
+The case that slips through is a recipient strain **below detection pre-FMT that blooms afterwards** — absent-then-present looks identical to engraftment. Post-FMT blooms are common, so this is worth checking rather than assuming away.
 
-So: treat a call backed by no pre-FMT signal and solid post-FMT coverage as strong, and a call where something near-identical was already faintly present as provisional. The pipeline will produce a number either way; the number is only as good as the baseline behind it.
+Two things make it tractable. The ≥1× coverage requirement is strict enough that trace pre-FMT signal rarely passes in one direction and not the other. And profiling every sample against **every** donor database gives you the background rate directly: a recipient matching donors they never received tells you how many chance hits to expect.
+
+So: a count that is large, specific to the recipient's own donor, and sits on a near-zero baseline is strong. A count of one or two, or one that appears against every donor equally, is background. The pipeline will produce a number either way — the number is only as good as the baseline and the cross-donor comparison behind it.
 
 ---
 

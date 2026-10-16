@@ -1,14 +1,55 @@
 # FMT_engrafter
 
-A step-by-step tutorial for **assessing bacterial strain engraftment after faecal microbiota transplantation (FMT)** from shotgun metagenomes, run end-to-end on **Pawsey's Setonix** supercomputer.
+A walkthrough for **counting donor strain engraftment after faecal microbiota transplantation (FMT)** from shotgun metagenomes, run on **Pawsey's Setonix**.
 
-This repository is a *tutorial*, not a pipeline. It stitches together three existing, well-maintained tools and explains the reasoning at each step — what each stage produces, why it is needed, and where the biology can mislead you.
+This is a tutorial, not a pipeline. It walks through five steps, with example code at each one:
+
+> **assemble → bin → quality control → sylph → filter and count**
+
+---
+
+## The idea
+
+After an FMT we want to know: **how many of the donor's microbial genomes can we find in the recipient afterwards that were not there before?**
+
+The approach is reference-free. Rather than profiling against a public database — which almost certainly does not contain the donor's actual strains — we **reconstruct genomes from the donor material itself** and use those as the reference. Then every recipient sample is matched against them.
+
+```
+  Donor FMT material                    Recipient samples
+   (raw FASTQ)                     (pre-FMT, post-FMT timepoints)
+        │                                      │
+        ▼                                      │
+  ┌───────────────┐                            │
+  │ 1. assemble   │  OpusTaxa: QC, host        │  same QC and
+  │               │  removal, metaSPAdes       │  host removal
+  └───────┬───────┘                            │
+          ▼                                    │
+  ┌───────────────┐                            │
+  │ 2. bin        │  nf-core/mag → MAGs        │
+  └───────┬───────┘                            │
+          ▼                                    │
+  ┌───────────────┐                            │
+  │ 3. QC         │  CheckM2 → filter          │
+  └───────┬───────┘                            │
+          ▼                                    │
+  ┌───────────────┐                            │
+  │ 4. sylph      │  one database per donor ◄──┘
+  │               │  profile every sample against every donor
+  └───────┬───────┘
+          ▼
+  ┌───────────────┐
+  │ 5. filter     │  ANI ≥ 99.9%, coverage ≥ 1×
+  │    and count  │  → MAGs shared with donor, per sample
+  └───────────────┘
+```
+
+**One database per donor.** Each donor's MAGs become their own sylph database, and every recipient sample is profiled against each. This keeps donor provenance exact — a hit is unambiguously against *that donor's* genome — and avoids any need to dereplicate across donors.
 
 ---
 
 ## What this assumes, and what it measures
 
-**The design.** This tutorial is built for a three-sample comparison per recipient:
+**The design.** Per recipient, three sample types:
 
 | Sample | Role |
 |---|---|
@@ -16,101 +57,47 @@ This repository is a *tutorial*, not a pipeline. It stitches together three exis
 | **Recipient pre-FMT** | Baseline. Establishes what the recipient already carried. |
 | **Recipient post-FMT** | One or more timepoints. Where engraftment is read out. |
 
-All three are required. Without the pre-FMT baseline you cannot tell engraftment from persistence, and every engraftment number will be inflated by the recipient's own pre-existing strains.
+Without the pre-FMT baseline you cannot tell engraftment from strains the recipient already had.
 
-**The readout is detection, not abundance.** The output is a count: *how many of the donor's MAGs are detected in the recipient after FMT that were not there before.* Every MAG is present or absent in a given sample, and the analysis counts those states.
+**The readout is a count, not abundance.** The final table is: *for each sample, how many of the donor's MAGs were detected.* Expressed as a fraction of that donor's catalogue it gives a percentage. sylph reports abundance columns; this walkthrough ignores them.
 
-Relative abundance is deliberately not part of it. sylph reports abundance columns and this tutorial ignores them. That is a simplification with a real payoff — several design decisions downstream (notably whether to dereplicate the MAG catalogue) get much easier once abundance accuracy is not a constraint. If you do want abundance, the columns are there, but the caveats are yours to work out.
+A healthy result looks like near-zero at baseline, rising after FMT:
 
----
-
-## The question this answers
-
-After an FMT, we want to know: **which bacterial strains in the recipient's post-FMT gut came from the donor?**
-
-A strain is either:
-
-| Outcome | Meaning |
-|---|---|
-| **Engrafted** | Present in the donor material, absent in the recipient pre-FMT, present in the recipient post-FMT |
-| **Persistent** | Present in the recipient pre-FMT and still present post-FMT |
-| **Novel** | Present post-FMT but in neither the donor nor the recipient pre-FMT |
-| **Lost** | Present in the recipient pre-FMT, absent post-FMT |
-
-Species-level profiling is not enough: donor and recipient routinely carry *different strains of the same species*, so a species-level table shows "no change" where a complete strain replacement actually happened. Everything in this tutorial is built around getting below the species line.
-
-Answering this needs **strain-level** resolution — see [docs/concepts/engraftment.md](docs/concepts/engraftment.md) for why, and for what this approach can and cannot support.
+| Sample | Timepoint | MAGs shared with donor | Donor MAGs total | % |
+|---|---|---|---|---|
+| `RecipA_t0` | baseline | 1 | 108 | 0.9 |
+| `RecipA_t1` | post-FMT | 34 | 108 | 31.5 |
+| `RecipA_t2` | post-FMT | 29 | 108 | 26.9 |
 
 ---
 
-## The approach
+## The walkthrough
 
-The core idea is **reference-free**: rather than matching samples against a generic public database (which may not contain the donor's actual strains at all), we build genomes *from the donor material and the recipients themselves*, then use those genomes as the reference.
-
-```
-   Raw FASTQ (donor material, recipient pre-FMT, recipient post-FMT)
-            │
-   ┌────────▼─────────┐
-   │ 1. OpusTaxa      │  QC → host removal → metaSPAdes assembly
-   └────────┬─────────┘  ⇒ scaffolds.fasta per sample
-            │
-   ┌────────▼─────────┐
-   │ 2. nf-core/mag   │  binning → bin QC → taxonomy
-   └────────┬─────────┘  ⇒ dereplicated, quality-filtered MAGs
-            │
-   ┌────────▼─────────┐
-   │ 3. sylph DB      │  build a custom database from those MAGs
-   └────────┬─────────┘  ⇒ cohort-specific .syldb
-            │
-   ┌────────▼─────────┐
-   │ 4. Profile       │  match every sample against the custom DB
-   └────────┬─────────┘  ⇒ per-genome ANI + coverage per sample
-            │
-      Engraftment calls
-```
-
-Why this ordering matters: step 3 is only meaningful because of step 2. A sylph database built from *your own* donor MAGs lets you ask "is **this specific donor genome** present in the recipient post-FMT?" — a question a public GTDB database cannot answer, because the donor's strain is almost certainly not in GTDB.
-
----
-
-## Tutorial stages
-
-| Stage | Guide | What it does |
+| Step | Guide | Tool |
 |---|---|---|
-| 0 | [Setonix setup](docs/00-setup-setonix.md) | Accounts, storage, modules, persistent sessions |
-| 1 | [OpusTaxa](docs/01-opustaxa.md) | QC, host-read removal, metaSPAdes assembly |
-| 2 | [nf-core/mag](docs/02-nfcore-mag.md) | Binning and bin QC from the assemblies |
-| 3 | [Custom sylph database](docs/03-sylph-custom-db.md) | Build a cohort-specific reference from the MAGs |
-| 4 | [Engraftment analysis](docs/04-engraftment-analysis.md) | Profile samples, call engraftment, interpret |
+| 0 | [Setup on Setonix](docs/00-setup-setonix.md) | modules, storage, accounts |
+| 1 | [Assemble](docs/01-assemble.md) | OpusTaxa (Snakemake + Singularity) |
+| 2 | [Bin](docs/02-bin.md) | nf-core/mag |
+| 3 | [Quality control](docs/03-quality-control.md) | CheckM2 |
+| 4 | [Sylph](docs/04-sylph.md) | sylph |
+| 5 | [Filter and count](docs/05-filter-and-count.md) | awk / R |
 
-Work through them in order. Every step is a copy-pasteable snippet — there is no wrapper pipeline to install, and nothing here hides a step from you.
+Example SLURM scripts and configs are in [`scripts/`](scripts/). They are templates — paths, project codes and donor names are placeholders you replace.
 
-Background reading: **[what engraftment actually means](docs/concepts/engraftment.md)** — definitions, the four outcomes, and the limits of calling strains this way.
-
----
-
-## Tools used
-
-- **[OpusTaxa](https://github.com/yenkaiC/OpusTaxa)** — Snakemake metagenomics pipeline (Chen et al.). Used here for QC, host removal and assembly. Also supplies the Singularity containers reused in stage 3.
-- **[nf-core/mag](https://nf-co.re/mag)** — Nextflow pipeline for metagenome binning and MAG QC.
-- **[sylph](https://github.com/bluenote-1577/sylph)** — ultrafast containment-based profiler; used against a custom database.
-
-All three run from Singularity containers on Setonix. Nothing here needs conda beyond the Snakemake launcher.
+Background: **[what engraftment means](docs/concepts/engraftment.md)**, and what a count like this does and does not support.
 
 ---
 
 ## Before you start
 
-You will need:
-
-- A Pawsey account and a project code (`pawseyXXXX`)
-- Paired-end shotgun metagenomes covering the three sample types above
-- Roughly 1–2 TB of `$MYSCRATCH` for a mid-sized cohort (assemblies and bins dominate)
-
-More than one post-FMT timepoint is worth having but not required — persistence at a later timepoint is much stronger evidence than detection at a single early one.
+- A Pawsey account and project code (`pawseyXXXX`)
+- Paired-end shotgun metagenomes: donor material, recipient pre-FMT, recipient post-FMT
+- Roughly 1–2 TB of `$MYSCRATCH` for a mid-sized cohort
 
 ---
 
-## Licence
+## Tools
 
-See [LICENSE](LICENSE).
+- **[OpusTaxa](https://github.com/yenkaiC/OpusTaxa)** — QC, host removal, assembly. Also supplies the Singularity containers reused in step 4.
+- **[nf-core/mag](https://nf-co.re/mag)** — binning and MAG QC.
+- **[sylph](https://github.com/bluenote-1577/sylph)** — containment-based profiling against the donor databases.

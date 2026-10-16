@@ -1,4 +1,4 @@
-# Stage 0 — Setting up on Setonix
+# Step 0 — Setting up on Setonix
 
 Everything in this tutorial runs on **Setonix**, Pawsey's SLURM cluster. This stage gets your account, storage and software in order. Do it once.
 
@@ -51,7 +51,7 @@ The path is `/scratch/pawseyXXXX/yourusername` — the `pawseyXXXX` part is your
 sacctmgr show assoc user=$(whoami) format=account%20
 ```
 
-Write it down. You will need it in two places: the OpusTaxa SLURM profile (stage 1) and an environment variable for Nextflow (stage 2). A wrong or missing account means jobs are rejected at submission, or silently billed to someone else's allocation.
+Write it down. You will need it in the OpusTaxa SLURM profile (step 1) and in the Nextflow config (step 2). A wrong or missing account means jobs are rejected at submission, or silently billed to someone else's allocation.
 
 Export it now, and add the line to your `~/.bashrc`:
 
@@ -59,7 +59,7 @@ Export it now, and add the line to your `~/.bashrc`:
 export PAWSEY_PROJECT=pawseyXXXX
 ```
 
-> **This one matters more than it looks.** The nf-core Setonix profile builds its SLURM account flag from `$PAWSEY_PROJECT`. If the variable is unset, every job in stage 2 is submitted with an empty `--account` and fails. It is the most common way a Setonix Nextflow run dies on the first job.
+> **Getting the account wrong is the most common way a run dies on its first job.** This walkthrough sets it explicitly in the Nextflow config (`clusterOptions = '--account=pawseyXXXX'`) rather than relying on the variable. Exporting it as well is still useful, because the official `pawsey_setonix` nf-core profile reads `$PAWSEY_PROJECT` if you ever switch to it.
 
 ---
 
@@ -72,7 +72,7 @@ module load singularity/4.1.0-slurm
 module load nextflow/25.04.6
 ```
 
-Load Singularity for stages 1, 3 and 4; load both for stage 2.
+Load Singularity for steps 1, 3 and 4; load both for step 2.
 
 If either version has moved on, list what is available:
 
@@ -164,7 +164,7 @@ screen -r fmt            # reattach later
 
 ## Checklist
 
-Before moving to stage 1:
+Before moving to step 1:
 
 - [ ] Working directory created on `$MYSCRATCH`
 - [ ] Project code identified and `PAWSEY_PROJECT` exported in `~/.bashrc`
@@ -173,4 +173,4 @@ Before moving to stage 1:
 - [ ] `NXF_SINGULARITY_CACHEDIR` points into `$MYSOFTWARE` after loading the Nextflow module
 - [ ] Connected via `setonix-workflow`, with a `screen` session you know how to reattach to (note the node number)
 
-Next: **[Stage 1 — OpusTaxa](01-opustaxa.md)**
+Next: **[Step 1 — Assemble](01-assemble.md)**

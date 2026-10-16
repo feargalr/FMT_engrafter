@@ -35,3 +35,10 @@ config/*.csv
 .Rhistory
 .ipynb_checkpoints/
 __pycache__/
+
+# Real analysis inputs/outputs - NEVER commit (identifiable study data)
+New files/
+new files/
+*_combined_profiles.tsv
+*_MAG_counts*.tsv
+samples.tsv

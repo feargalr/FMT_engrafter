@@ -1,4 +1,4 @@
-# Stage 1 — OpusTaxa: QC, host removal and assembly
+# Step 1 — Assemble: QC, host removal and assembly
 
 [OpusTaxa](https://github.com/yenkaiC/OpusTaxa) is a Snakemake metagenomics pipeline. We use it here for three things:
 
@@ -6,9 +6,11 @@
 2. **Host read removal** (NoHuman) — strip human sequence
 3. **Assembly** (metaSPAdes) — produce `scaffolds.fasta` per sample
 
-Those scaffolds are the input to stage 2. We deliberately **do not** run the taxonomic profilers here — the cohort-specific profiling happens in stages 3–4 against our own database.
+Run it on **every** sample — donors and recipients alike. The donor assemblies become MAGs in step 2; the recipients only need the host-removed reads, which step 4 matches against those MAGs.
 
-A side benefit: OpusTaxa ships Singularity containers for every tool, including sylph. Stage 3 reuses that sylph container rather than installing anything new.
+We deliberately do **not** run the taxonomic profilers here. The profiling that matters happens in step 4, against the donor genomes rather than a public database.
+
+A side benefit: OpusTaxa ships Singularity containers for every tool, including sylph. Step 4 reuses that sylph container rather than installing anything new.
 
 ---
 
@@ -63,40 +65,21 @@ It auto-detects and standardises common naming conventions (Illumina bcl2fastq, 
 
 ### Keep a sample manifest
 
-This is the single most valuable thing you will do for stages 2–4. Create `samples.tsv` in your project root recording what each sample *is*:
+Record what each sample *is*, while you still remember which tube was which. Every table in step 5 is a join against this.
 
-| sample_id | subject_id | sample_type | timepoint |
-|---|---|---|---|
-| `D01` | `donor01` | `donor` | `NA` |
-| `R01_pre` | `recip01` | `recipient` | `pre` |
-| `R01_wk4` | `recip01` | `recipient` | `post` |
-| `R01_wk12` | `recip01` | `recipient` | `post` |
+| sample_id | participant | sample_type | timepoint | donor |
+|---|---|---|---|---|
+| `D1` | — | donor | NA | — |
+| `D2` | — | donor | NA | — |
+| `RecipA_t0` | RecipA | recipient | baseline | `D2` |
+| `RecipA_t1` | RecipA | recipient | post-FMT | `D2` |
+| `RecipA_t2` | RecipA | recipient | post-FMT | `D2` |
 
-Every engraftment call in stage 4 is a comparison *across rows of this table*. Without it you have a matrix of genomes against sample names and no way to interpret it. Build it now, while you still remember which tube was which.
+- **`sample_id`** must match the FASTQ basename OpusTaxa uses — it is the join key throughout.
+- **`timepoint`** — mark the pre-FMT baseline clearly. Keep labels sortable as strings.
+- **`donor`** — which donor this recipient received. This is what lets you read the step 5 table correctly: a recipient should match *their own* donor, not the others.
 
-Write it as a tab-separated file now:
-
-```bash
-cat > $MYSCRATCH/FMT_engrafter/samples.tsv <<'EOF'
-sample_id	subject_id	sample_type	timepoint	donor_id
-Donor_01	donor01	donor	NA	
-Donor_02	donor02	donor	NA	
-Recipient_01_Day00	recip01	recipient	Day00	Donor_01
-Recipient_01_Day07	recip01	recipient	Day07	Donor_01
-Recipient_01_Day28	recip01	recipient	Day28	Donor_01
-Recipient_02_Day00	recip02	recipient	Day00	Donor_02
-Recipient_02_Day07	recip02	recipient	Day07	Donor_02
-Recipient_02_Day28	recip02	recipient	Day28	Donor_02
-EOF
-```
-
-Column notes:
-
-- **`sample_id`** must match the FASTQ basename OpusTaxa uses — it is the join key for every later table.
-- **`timepoint`** — `Day00` is the pre-FMT baseline. Keep labels zero-padded (`Day07`, not `Day7`) so they sort correctly as strings.
-- **`donor_id`** — which donor this recipient received. Required: it is what lets stage 4 compare a recipient against *their own* donor rather than the whole cohort.
-
-A copy of this template lives at [`config/samples.tsv.example`](../config/samples.tsv.example).
+Step 4 also needs a second, much simpler manifest — just `sample`, `R1`, `R2`, tab-separated — to drive the sylph job array. You generate that from the FASTQ directory rather than writing it by hand.
 
 > **Donor material matters.** The donor sample must be the *material actually administered*, not a separate donor stool collection from a different date. Donor strain content varies between donations.
 
@@ -141,7 +124,7 @@ snakemake --workflow-profile config/slurm_singularity \
 
 ## Assembly is the expensive step
 
-metaSPAdes dominates the runtime and memory of this stage. The OpusTaxa defaults request 20 threads per sample; deep samples may need more time than the default walltime allows.
+metaSPAdes dominates the runtime and memory of this step. The OpusTaxa defaults request 20 threads per sample; deep samples may need more time than the default walltime allows.
 
 If assemblies are being killed on walltime, raise it in the profile's `set-resources`:
 
@@ -157,7 +140,7 @@ Capping concurrency matters as much as raising walltime — a cohort of large as
 
 ## Output
 
-The files that matter for stage 2:
+The files that matter downstream:
 
 ```
 OpusTaxa/Data/
@@ -170,7 +153,7 @@ OpusTaxa/Data/
         └── scaffolds.fasta       # → input to nf-core/mag
 ```
 
-**Both** are inputs to stage 2. The assemblies supply the contigs to bin; the host-removed reads supply the coverage signal that binning algorithms use to group contigs. Do not delete the NoHuman reads after assembly — stages 2 and 4 both need them.
+**Both** are needed later. The assemblies supply the contigs to bin; the host-removed reads supply the coverage signal that binning algorithms use to group contigs. Do not delete the NoHuman reads after assembly — steps 2 and 4 both need them.
 
 ---
 
@@ -190,4 +173,4 @@ done
 
 A sample with very few scaffolds will yield no usable bins. Decide now whether to drop it or sequence it deeper — a donor sample that fails here undermines the whole analysis, since donor MAGs are the reference everything else is matched against.
 
-Next: **[Stage 2 — nf-core/mag](02-nfcore-mag.md)**
+Next: **[Step 2 — Bin](02-bin.md)**
